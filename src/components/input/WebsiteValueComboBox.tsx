@@ -14,6 +14,7 @@ export interface WebsiteValueComboBoxProps
   websiteId: string;
   type: string;
   additionalType?: string;
+  includeHostname?: boolean;
   startDate: Date;
   endDate: Date;
   value: string;
@@ -24,6 +25,7 @@ export function WebsiteValueComboBox({
   websiteId,
   type,
   additionalType = '',
+  includeHostname = false,
   startDate,
   endDate,
   value,
@@ -42,6 +44,7 @@ export function WebsiteValueComboBox({
     search: searchValue,
     startDate,
     endDate,
+    includeHostname,
   });
   const additionalQuery = useWebsiteValuesQuery({
     websiteId,

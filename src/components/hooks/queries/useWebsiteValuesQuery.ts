@@ -9,12 +9,14 @@ export function useWebsiteValuesQuery({
   startDate,
   endDate,
   search,
+  includeHostname,
 }: {
   websiteId: string;
   type: string;
   startDate: Date;
   endDate: Date;
   search?: string;
+  includeHostname?: boolean;
 }) {
   const { get, useQuery } = useApi();
   const { locale } = useLocale();
@@ -49,13 +51,14 @@ export function useWebsiteValuesQuery({
   };
 
   return useQuery({
-    queryKey: ['websites:values', { websiteId, type, startDate, endDate, search }],
+    queryKey: ['websites:values', { websiteId, type, startDate, endDate, search, includeHostname }],
     queryFn: () =>
       get(`/websites/${websiteId}/values`, {
         type,
         startAt: +startDate,
         endAt: +endDate,
         search: getSearch(type, search),
+        includeHostname,
       }),
     enabled: !!(websiteId && type && startDate && endDate),
   });

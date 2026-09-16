@@ -11,6 +11,9 @@ export interface JourneyParameters {
   endStep?: string;
 }
 
+const PAGE_PREFIX = 'page:';
+const EVENT_PREFIX = 'event:';
+
 export interface JourneyResult {
   e1: string;
   e2: string;
@@ -90,7 +93,7 @@ async function relationalQuery(
 
     // create start Step params query
     if (startStep) {
-      startStepQuery = `and e1 = {{startStep}}`;
+      startStepQuery = `and (e1 = '${PAGE_PREFIX}' || {{startStep}} or e1 = '${EVENT_PREFIX}' || {{startStep}})`;
       params.startStep = startStep;
     }
 
@@ -98,9 +101,9 @@ async function relationalQuery(
     if (endStep) {
       for (let i = 1; i < steps; i++) {
         const startQuery = i === 1 ? 'and (' : '\nor ';
-        endStepQuery += `${startQuery}(e${i} = {{endStep}} and e${i + 1} is null) `;
+        endStepQuery += `${startQuery}((e${i} = '${PAGE_PREFIX}' || {{endStep}} or e${i} = '${EVENT_PREFIX}' || {{endStep}}) and e${i + 1} is null) `;
       }
-      endStepQuery += `\nor (e${steps} = {{endStep}}))`;
+      endStepQuery += `\nor (e${steps} = '${PAGE_PREFIX}' || {{endStep}} or e${steps} = '${EVENT_PREFIX}' || {{endStep}}))`;
 
       params.endStep = endStep;
     }
@@ -119,7 +122,10 @@ async function relationalQuery(
       select distinct
           website_event.visit_id,
           website_event.referrer_path,
-          coalesce(nullIf(website_event.event_name, ''), website_event.url_path) "event",
+          case
+            when coalesce(website_event.event_name, '') != '' then '${EVENT_PREFIX}' || website_event.event_name
+            else '${PAGE_PREFIX}' || coalesce(website_event.hostname, '') || website_event.url_path
+          end "event",
           row_number() OVER (PARTITION BY visit_id ORDER BY website_event.created_at) AS event_number
       from website_event
       ${cohortQuery}
@@ -202,7 +208,7 @@ async function clickhouseQuery(
 
     // create start Step params query
     if (startStep) {
-      startStepQuery = `and e1 = {startStep:String}`;
+      startStepQuery = `and (e1 = concat('${PAGE_PREFIX}', {startStep:String}) or e1 = concat('${EVENT_PREFIX}', {startStep:String}))`;
       params.startStep = startStep;
     }
 
@@ -210,9 +216,9 @@ async function clickhouseQuery(
     if (endStep) {
       for (let i = 1; i < steps; i++) {
         const startQuery = i === 1 ? 'and (' : '\nor ';
-        endStepQuery += `${startQuery}(e${i} = {endStep:String} and e${i + 1} is null) `;
+        endStepQuery += `${startQuery}((e${i} = concat('${PAGE_PREFIX}', {endStep:String}) or e${i} = concat('${EVENT_PREFIX}', {endStep:String})) and e${i + 1} is null) `;
       }
-      endStepQuery += `\nor (e${steps} = {endStep:String}))`;
+      endStepQuery += `\nor (e${steps} = concat('${PAGE_PREFIX}', {endStep:String}) or e${steps} = concat('${EVENT_PREFIX}', {endStep:String})))`;
 
       params.endStep = endStep;
     }
@@ -230,7 +236,7 @@ async function clickhouseQuery(
     WITH events AS (
       select distinct
           visit_id,
-          coalesce(nullIf(event_name, ''), url_path) "event",
+          if(event_name != '', concat('${EVENT_PREFIX}', event_name), concat('${PAGE_PREFIX}', hostname, url_path)) "event",
           row_number() OVER (PARTITION BY visit_id ORDER BY created_at) AS event_number
       from website_event
       ${cohortQuery}

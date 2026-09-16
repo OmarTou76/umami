@@ -56,6 +56,7 @@ async function relationalQuery(
       website_event.event_id as "eventId",
       website_event.session_id as "sessionId",
       website_event.event_name as "eventName",
+      website_event.hostname,
       website_event.url_path as "urlPath",
       max(website_event.created_at) as "createdAt",
       array_agg(event_data.data_key order by event_data.data_key asc) as "propertyKeys",
@@ -80,6 +81,7 @@ async function relationalQuery(
       website_event.event_id,
       website_event.session_id,
       website_event.event_name,
+      website_event.hostname,
       website_event.url_path,
       paged_events.sort_created_at
     order by paged_events.sort_created_at desc
@@ -112,6 +114,7 @@ async function clickhouseQuery(
       event_data_pivot.event_id as eventId,
       event_data_pivot.session_id as sessionId,
       event_data_pivot.event_name as eventName,
+      website_event.hostname as hostname,
       event_data_pivot.url_path as urlPath,
       event_data_pivot.created_at as createdAt,
       groupArrayMerge(property_keys) as propertyKeys,
@@ -145,6 +148,7 @@ async function clickhouseQuery(
       event_data_pivot.event_id,
       event_data_pivot.session_id,
       event_data_pivot.event_name,
+      website_event.hostname,
       event_data_pivot.url_path,
       event_data_pivot.created_at
     order by event_data_pivot.created_at desc

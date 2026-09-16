@@ -6,6 +6,7 @@ import { useFilterParameters } from '../useFilterParameters';
 
 export type WebsiteMetricsData = {
   x: string;
+  hostname?: string;
   y: number;
 }[];
 

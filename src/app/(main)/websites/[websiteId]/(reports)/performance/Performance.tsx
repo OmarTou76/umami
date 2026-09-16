@@ -219,12 +219,13 @@ export function Performance({ websiteId, startDate, endDate, unit }: Performance
                             Number({ p50, p75, p95 }[selectedPercentile]) > 0,
                         )
                         .slice(0, 20)
-                        .map(({ name, p50, p75, p95 }: any) => ({
+                        .map(({ name, hostname, p50, p75, p95 }: any) => ({
                           label: name,
+                          hostname,
                           count: Number({ p50, p75, p95 }[selectedPercentile]),
                           percent: 0,
                         }))}
-                      renderLabel={({ label }: { label: string }) => <Text>{label}</Text>}
+                      renderLabel={(row: any) => <MetricLabel type="path" data={row} />}
                     />
                   </TabPanel>
                   <TabPanel id="title">

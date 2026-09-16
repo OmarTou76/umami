@@ -23,7 +23,14 @@ export async function POST(request: Request) {
 
   const [{ chart, summary }, pages, pageTitles, devices, browsers] = await Promise.all([
     getPerformance(websiteId, parameters as PerformanceParameters, filters),
-    getPerformanceMetrics(websiteId, parameters as PerformanceParameters, filters, 'url_path', 500),
+    getPerformanceMetrics(
+      websiteId,
+      parameters as PerformanceParameters,
+      filters,
+      'url_path',
+      500,
+      true,
+    ),
     getPerformanceMetrics(
       websiteId,
       parameters as PerformanceParameters,

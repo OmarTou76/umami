@@ -20,6 +20,7 @@ import { useFormat, useMessages, useNavigation } from '@/components/hooks';
 import { Eye, FileText } from '@/components/icons';
 import { EventData } from '@/components/metrics/EventData';
 import { Lightning } from '@/components/svg';
+import { formatPageUrl, getPageHref } from '@/lib/url';
 
 export function EventsTable(props: DataTableProps) {
   const { t, labels } = useMessages();
@@ -27,14 +28,15 @@ export function EventsTable(props: DataTableProps) {
   const { formatValue } = useFormat();
 
   const renderLink = (label: string, hostname: string) => {
+    const href = getPageHref(hostname, label);
+
+    if (!href) {
+      return formatPageUrl(hostname, label);
+    }
+
     return (
-      <a
-        href={`//${hostname}${label}`}
-        style={{ fontWeight: 'bold' }}
-        target="_blank"
-        rel="noreferrer noopener"
-      >
-        {label}
+      <a href={href} style={{ fontWeight: 'bold' }} target="_blank" rel="noreferrer noopener">
+        {formatPageUrl(hostname, label)}
       </a>
     );
   };
@@ -56,7 +58,7 @@ export function EventsTable(props: DataTableProps) {
                 <Text
                   weight="bold"
                   style={{ maxWidth: '300px' }}
-                  title={row.eventName || row.urlPath}
+                  title={row.eventName || formatPageUrl(row.hostname, row.urlPath)}
                   truncate
                 >
                   {row.eventName || renderLink(row.urlPath, row.hostname)}

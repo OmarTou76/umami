@@ -1,14 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
-import {
-  FILTER_COLUMNS,
-  GROUPED_DOMAINS,
-  SESSION_COLUMNS,
-} from '@/lib/constants';
+import { FILTER_COLUMNS, GROUPED_DOMAINS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
 const FUNCTION_NAME = 'getPageviewExpandedMetrics';
+const PAGE_TYPES = ['path', 'fullPath', 'entry', 'exit'];
 
 export interface PageviewExpandedMetricsParameters {
   type: string;
@@ -18,6 +15,7 @@ export interface PageviewExpandedMetricsParameters {
 
 export interface PageviewExpandedMetricsData {
   name: string;
+  hostname?: string;
   pageviews: number;
   visitors: number;
   visits: number;
@@ -40,6 +38,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ): Promise<PageviewExpandedMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
+  const includeHostname = PAGE_TYPES.includes(type);
   let column = getPageviewColumn(type);
   const { rawQuery, parseFilters } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
@@ -92,11 +91,13 @@ async function relationalQuery(
     type === 'fullPath'
       ? `case when website_event.url_query != '' then website_event.url_path || '?' || website_event.url_query else website_event.url_path end`
       : column;
+  const hostnameColumn = includeHostname ? 'website_event.hostname' : null;
 
   return rawQuery(
     `
     select
       name,
+      ${hostnameColumn ? 'hostname,' : ''}
       sum(t.c) as "pageviews",
       count(distinct t.session_id) as "visitors",
       count(distinct t.visit_id) as "visits",
@@ -105,6 +106,7 @@ async function relationalQuery(
     from (
       select
         ${selectColumn} as "name",
+        ${hostnameColumn ? `${hostnameColumn} as hostname,` : ''}
         website_event.session_id,
         website_event.visit_id,
         count(*) as "c"
@@ -119,10 +121,10 @@ async function relationalQuery(
         ${excludeDomain}
         ${fullPathSearchQuery}
         ${filterQuery}
-      group by ${groupByColumn}, website_event.session_id, website_event.visit_id
+      group by ${groupByColumn}${hostnameColumn ? `, ${hostnameColumn}` : ''}, website_event.session_id, website_event.visit_id
     ) as t
     where name != ''
-    group by name
+    group by name${hostnameColumn ? ', hostname' : ''}
     order by visitors desc, visits desc
     limit ${limit}
     offset ${offset}
@@ -139,8 +141,9 @@ async function clickhouseQuery(
   websiteId: string,
   parameters: PageviewExpandedMetricsParameters,
   filters: QueryFilters,
-): Promise<{ x: string; y: number }[]> {
+): Promise<PageviewExpandedMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
+  const includeHostname = PAGE_TYPES.includes(type);
   let column = getPageviewColumn(type);
   const { rawQuery, parseFilters } = clickhouse;
   const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
@@ -155,6 +158,7 @@ async function clickhouseQuery(
   let excludeDomain = '';
   let entryExitQuery = '';
   let selectColumn = column;
+  let hostnameColumn = includeHostname ? 'website_event.hostname' : null;
 
   if (column === 'referrer_domain') {
     excludeDomain = `and referrer_domain != hostname and referrer_domain != ''`;
@@ -170,7 +174,8 @@ async function clickhouseQuery(
     entryExitQuery = `
       JOIN (select visit_id,
           ${aggregrate}(url_path, created_at) url_path,
-          ${aggregrate}(url_query, created_at) url_query
+          ${aggregrate}(url_query, created_at) url_query,
+          ${aggregrate}(hostname, created_at) hostname
       from website_event
       where website_id = {websiteId:UUID}
         and created_at between {startDate:DateTime64} and {endDate:DateTime64}
@@ -179,6 +184,7 @@ async function clickhouseQuery(
       ON x.visit_id = website_event.visit_id`;
 
     selectColumn = `x.url_path`;
+    hostnameColumn = 'x.hostname';
   } else if (type === 'fullPath') {
     selectColumn = `if(url_query != '', concat(url_path, '?', url_query), url_path)`;
   }
@@ -187,6 +193,7 @@ async function clickhouseQuery(
     `
     select
       name,
+      ${hostnameColumn ? 'hostname,' : ''}
       sum(t.c) as "pageviews",
       uniq(t.session_id) as "visitors",
       uniq(t.visit_id) as "visits",
@@ -195,6 +202,7 @@ async function clickhouseQuery(
     from (
       select
         ${selectColumn} name,
+        ${hostnameColumn ? `${hostnameColumn} as hostname,` : ''}
         session_id,
         visit_id,
         count(*) c
@@ -209,9 +217,9 @@ async function clickhouseQuery(
         ${excludeDomain}
         ${fullPathSearchQuery}
         ${filterQuery}
-      group by name, session_id, visit_id
+      group by name${hostnameColumn ? `, ${hostnameColumn}` : ''}, session_id, visit_id
     ) as t
-    group by name
+    group by name${hostnameColumn ? ', hostname' : ''}
     order by visitors desc, visits desc
     limit ${limit}
     offset ${offset}

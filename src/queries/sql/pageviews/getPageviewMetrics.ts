@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
 const FUNCTION_NAME = 'getPageviewMetrics';
+const PAGE_TYPES = ['path', 'fullPath', 'entry', 'exit'];
 
 export interface PageviewMetricsParameters {
   type: string;
@@ -14,6 +15,7 @@ export interface PageviewMetricsParameters {
 
 export interface PageviewMetricsData {
   x: string;
+  hostname?: string;
   y: number;
 }
 
@@ -32,6 +34,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ): Promise<PageviewMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
+  const includeHostname = PAGE_TYPES.includes(type);
   let column = getPageviewColumn(type);
   const { rawQuery, parseFilters } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
@@ -61,6 +64,7 @@ async function relationalQuery(
       join (
         select distinct on (visit_id)
           visit_id,
+          hostname,
           url_path,
           url_query
         from website_event
@@ -79,10 +83,16 @@ async function relationalQuery(
     type === 'fullPath'
       ? `case when website_event.url_query != '' then website_event.url_path || '?' || website_event.url_query else website_event.url_path end`
       : column;
+  const hostnameColumn = includeHostname
+    ? type === 'entry' || type === 'exit'
+      ? 'x.hostname'
+      : 'website_event.hostname'
+    : null;
 
   return rawQuery(
     `
     select ${selectColumn} x,
+      ${hostnameColumn ? `${hostnameColumn} as hostname,` : ''}
       count(distinct website_event.session_id) as y
     from website_event
     ${cohortQuery}
@@ -96,8 +106,8 @@ async function relationalQuery(
       ${excludeDomain}
       ${fullPathSearchQuery}
       ${filterQuery}
-    group by 1
-    order by 2 desc
+    group by 1${hostnameColumn ? ', 2' : ''}
+    order by ${hostnameColumn ? '3' : '2'} desc
     limit ${limit}
     offset ${offset}
     `,
@@ -114,8 +124,9 @@ async function clickhouseQuery(
   websiteId: string,
   parameters: PageviewMetricsParameters,
   filters: QueryFilters,
-): Promise<{ x: string; y: number }[]> {
+): Promise<PageviewMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
+  const includeHostname = PAGE_TYPES.includes(type);
   let column = getPageviewColumn(type);
   const { rawQuery, parseFilters } = clickhouse;
   const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
@@ -129,9 +140,10 @@ async function clickhouseQuery(
 
   let sql = '';
   let excludeDomain = '';
-  if (type === 'fullPath' || EVENT_COLUMNS.some(item => Object.keys(filters).includes(item))) {
+  if (includeHostname || EVENT_COLUMNS.some(item => Object.keys(filters).includes(item))) {
     let entryExitQuery = '';
     let selectColumn = column;
+    let hostnameColumn = includeHostname ? 'website_event.hostname' : null;
 
     if (column === 'referrer_domain') {
       excludeDomain = `and referrer_domain != hostname and referrer_domain != ''`;
@@ -143,7 +155,8 @@ async function clickhouseQuery(
       entryExitQuery = `
       JOIN (select visit_id,
           ${aggregrate}(url_path, created_at) url_path,
-          ${aggregrate}(url_query, created_at) url_query
+          ${aggregrate}(url_query, created_at) url_query,
+          ${aggregrate}(hostname, created_at) hostname
       from website_event
       where website_id = {websiteId:UUID}
         and created_at between {startDate:DateTime64} and {endDate:DateTime64}
@@ -153,12 +166,14 @@ async function clickhouseQuery(
 
       column = `x.url_path`;
       selectColumn = `x.url_path`;
+      hostnameColumn = 'x.hostname';
     } else if (type === 'fullPath') {
       selectColumn = `if(url_query != '', concat(url_path, '?', url_query), url_path)`;
     }
 
     sql = `
     select ${selectColumn} x,
+      ${hostnameColumn ? `${hostnameColumn} as hostname,` : ''}
       uniq(website_event.session_id) as y
     from website_event
     ${cohortQuery}
@@ -171,7 +186,7 @@ async function clickhouseQuery(
       ${excludeDomain}
       ${fullPathSearchQuery}
       ${filterQuery}
-    group by x
+    group by x${hostnameColumn ? `, ${hostnameColumn}` : ''}
     order by y desc
     limit ${limit}
     offset ${offset}

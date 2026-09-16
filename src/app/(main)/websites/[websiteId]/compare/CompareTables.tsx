@@ -130,8 +130,16 @@ export function CompareTables({ websiteId }: { websiteId: string }) {
     },
   ];
 
-  const renderChange = ({ label, count }) => {
-    const prev = data.find(d => d.x === label)?.y;
+  const renderChange = ({
+    label,
+    hostname,
+    count,
+  }: {
+    label: string;
+    hostname?: string;
+    count: number;
+  }) => {
+    const prev = data.find(d => d.x === label && d.hostname === hostname)?.y;
     const value = count - prev;
     const change = Math.abs(((count - prev) / prev) * 100);
 

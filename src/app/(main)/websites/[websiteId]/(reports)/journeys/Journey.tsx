@@ -29,6 +29,21 @@ const EVENT_TYPES = {
   events: 2,
 };
 
+const PAGE_PREFIX = 'page:';
+const EVENT_PREFIX = 'event:';
+
+function getStep(name: string) {
+  if (name.startsWith(PAGE_PREFIX)) {
+    return { label: name.slice(PAGE_PREFIX.length), type: 'page' };
+  }
+
+  if (name.startsWith(EVENT_PREFIX)) {
+    return { label: name.slice(EVENT_PREFIX.length), type: 'event' };
+  }
+
+  return { label: name, type: name.startsWith('/') ? 'page' : 'event' };
+}
+
 export function Journey({ websiteId, steps, startStep, endStep, view }: JourneyProps) {
   const [selectedNode, setSelectedNode] = useState(null);
   const [activeNode, setActiveNode] = useState(null);
@@ -194,6 +209,7 @@ export function Journey({ websiteId, steps, startStep, endStep, view }: JourneyP
                       selectedCount,
                       lines,
                     }) => {
+                      const step = getStep(name);
                       const nodeCount = selected
                         ? active
                           ? activeCount
@@ -223,9 +239,9 @@ export function Journey({ websiteId, steps, startStep, endStep, view }: JourneyP
                             })}
                             onClick={() => handleClick(name, columnIndex, paths)}
                           >
-                            <Row alignItems="center" className={styles.name} title={name} gap>
-                              <Icon>{name.startsWith('/') ? <File /> : <Lightning />}</Icon>
-                              <Text truncate>{name}</Text>
+                            <Row alignItems="center" className={styles.name} title={step.label} gap>
+                              <Icon>{step.type === 'page' ? <File /> : <Lightning />}</Icon>
+                              <Text truncate>{step.label}</Text>
                             </Row>
                             <div className={styles.count} title={nodeCount}>
                               {columnIndex === 0 || (selectedNode && !selected) ? (

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SEGMENT_TYPES, SESSION_COLUMNS } from '@/lib/constants';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, unauthorized } from '@/lib/response';
@@ -12,6 +13,10 @@ export async function GET(
 ) {
   const schema = withDateRange({
     type: fieldsParam,
+    includeHostname: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform(value => value === 'true'),
     ...searchParams,
   });
 
@@ -37,7 +42,7 @@ export async function GET(
     return unauthorized();
   }
 
-  const { type } = query;
+  const { type, includeHostname } = query;
 
   if (!SESSION_COLUMNS.includes(type) && !EVENT_COLUMNS.includes(type) && !SEGMENT_TYPES[type]) {
     return badRequest();
@@ -51,7 +56,7 @@ export async function GET(
     }));
   } else {
     const filters = await getQueryFilters(query, websiteId);
-    values = await getValues(websiteId, FILTER_COLUMNS[type], filters);
+    values = await getValues(websiteId, FILTER_COLUMNS[type], filters, { includeHostname });
   }
 
   return json(values.filter(n => n?.value != null).sort());

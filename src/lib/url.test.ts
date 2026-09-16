@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   buildPath,
+  formatPageUrl,
+  getPageHref,
   getQueryString,
   isValidUrl,
   safeDecodeURI,
@@ -79,5 +81,33 @@ describe('isValidUrl', () => {
     expect(isValidUrl('not a url')).toBe(false);
     expect(isValidUrl('/relative/path')).toBe(false);
     expect(isValidUrl('')).toBe(false);
+  });
+});
+
+describe('formatPageUrl', () => {
+  test('combines a hostname and path', () => {
+    expect(formatPageUrl('shop.example.com', '/menu')).toBe('shop.example.com/menu');
+  });
+
+  test('falls back to the path when the hostname is missing', () => {
+    expect(formatPageUrl(undefined, '/menu')).toBe('/menu');
+  });
+
+  test('adds a slash when needed', () => {
+    expect(formatPageUrl('shop.example.com', 'menu')).toBe('shop.example.com/menu');
+  });
+});
+
+describe('getPageHref', () => {
+  test('creates a protocol-relative link for a hostname', () => {
+    expect(getPageHref('shop.example.com', '/menu')).toBe('//shop.example.com/menu');
+  });
+
+  test('preserves an explicit protocol', () => {
+    expect(getPageHref('http://localhost:3000', '/menu')).toBe('http://localhost:3000/menu');
+  });
+
+  test('does not create a link without a hostname', () => {
+    expect(getPageHref(undefined, '/menu')).toBeUndefined();
   });
 });

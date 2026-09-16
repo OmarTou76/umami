@@ -11,6 +11,7 @@ const ITEM_SIZE = 30;
 
 interface ListData {
   label: string;
+  hostname?: string;
   count: number;
   percent: number;
 }

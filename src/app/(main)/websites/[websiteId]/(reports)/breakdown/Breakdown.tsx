@@ -2,6 +2,7 @@ import { Column, DataColumn, DataTable, Text } from '@umami/react-zen';
 import { LoadingPanel } from '@/components/common/LoadingPanel';
 import { useFields, useFormat, useMessages, useResultQuery } from '@/components/hooks';
 import { formatShortTime } from '@/lib/format';
+import { formatPageUrl } from '@/lib/url';
 
 export interface BreakdownProps {
   websiteId: string;
@@ -38,7 +39,10 @@ export function Breakdown({ websiteId, selectedFields = [], startDate, endDate }
                 width="minmax(120px, 1fr)"
               >
                 {row => {
-                  const value = formatValue(row[field], field);
+                  const value =
+                    field === 'path'
+                      ? formatPageUrl(row.hostname, row[field])
+                      : formatValue(row[field], field);
                   return (
                     <Text truncate title={value}>
                       {value}

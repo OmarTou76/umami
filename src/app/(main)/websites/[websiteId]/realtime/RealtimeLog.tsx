@@ -20,6 +20,7 @@ import { Eye, User } from '@/components/icons';
 import { FilterButtons } from '@/components/input/FilterButtons';
 import { Lightning } from '@/components/svg';
 import { BROWSERS, OS_NAMES } from '@/lib/constants';
+import { formatPageUrl, getPageHref } from '@/lib/url';
 
 const TYPE_ALL = 'all';
 const TYPE_PAGEVIEW = 'pageview';
@@ -82,32 +83,33 @@ export function RealtimeLog({ data }: { data: any }) {
     const { __type, eventName, urlPath, browser, os, country, device, hostname } = log;
 
     if (__type === TYPE_EVENT) {
+      const pageUrl = formatPageUrl(hostname, urlPath);
+      const href = getPageHref(hostname, urlPath);
       return t.rich(messages.eventLog, {
         event: eventName || t(labels.unknown),
-        url: urlPath,
+        url: pageUrl,
         b: chunks => <b>{chunks}</b>,
-        a: chunks => (
-          <a
-            href={`//${hostname}${urlPath}`}
-            style={{ fontWeight: 'bold' }}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {chunks}
-          </a>
-        ),
+        a: chunks =>
+          href ? (
+            <a href={href} style={{ fontWeight: 'bold' }} target="_blank" rel="noreferrer noopener">
+              {chunks}
+            </a>
+          ) : (
+            chunks
+          ),
       });
     }
 
     if (__type === TYPE_PAGEVIEW) {
+      const href = getPageHref(hostname, urlPath);
+
+      if (!href) {
+        return formatPageUrl(hostname, urlPath);
+      }
+
       return (
-        <a
-          href={`//${hostname}${urlPath}`}
-          style={{ fontWeight: 'bold' }}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          {urlPath}
+        <a href={href} style={{ fontWeight: 'bold' }} target="_blank" rel="noreferrer noopener">
+          {formatPageUrl(hostname, urlPath)}
         </a>
       );
     }
@@ -150,10 +152,11 @@ export function RealtimeLog({ data }: { data: any }) {
     let logs = data.events;
 
     if (search) {
-      logs = logs.filter(({ eventName, urlPath, browser, os, country, device }) => {
+      logs = logs.filter(({ eventName, urlPath, hostname, browser, os, country, device }) => {
         return [
           eventName,
           urlPath,
+          hostname,
           os,
           formatValue(browser, 'browser'),
           formatValue(country, 'country'),

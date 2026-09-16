@@ -11,7 +11,12 @@ const SESSION_DB_COLUMNS = new Set(
 const FUNCTION_NAME = 'getValues';
 
 export async function getValues(
-  ...args: [websiteId: string, column: string, filters: QueryFilters]
+  ...args: [
+    websiteId: string,
+    column: string,
+    filters: QueryFilters,
+    options?: { includeHostname?: boolean },
+  ]
 ) {
   return runQuery({
     [PRISMA]: () => relationalQuery(...args),
@@ -19,10 +24,19 @@ export async function getValues(
   });
 }
 
-async function relationalQuery(websiteId: string, column: string, filters: QueryFilters) {
+async function relationalQuery(
+  websiteId: string,
+  column: string,
+  filters: QueryFilters,
+  options: { includeHostname?: boolean } = {},
+) {
   const { rawQuery, getSearchSQL } = prisma;
   const params = {};
   const { startDate, endDate, search } = filters;
+  const valueColumn =
+    options.includeHostname && column === 'url_path'
+      ? `case when hostname is not null and hostname != '' then hostname || url_path else url_path end`
+      : column;
 
   let searchQuery = '';
   let excludeDomain = '';
@@ -42,11 +56,11 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
 
           params[key] = value;
 
-          return getSearchSQL(column, key).replace('and ', '');
+          return getSearchSQL(valueColumn, key).replace('and ', '');
         })
         .join(' OR ')})`;
     } else {
-      searchQuery = getSearchSQL(column);
+      searchQuery = getSearchSQL(valueColumn);
     }
   }
 
@@ -69,7 +83,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
 
   return rawQuery(
     `
-    select ${column} as "value", count(*) as "count"
+    select ${valueColumn} as "value", count(*) as "count"
     from website_event
     where website_event.website_id = {{websiteId::uuid}}
       and website_event.created_at between {{startDate}} and {{endDate}}
@@ -84,10 +98,19 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
   );
 }
 
-async function clickhouseQuery(websiteId: string, column: string, filters: QueryFilters) {
+async function clickhouseQuery(
+  websiteId: string,
+  column: string,
+  filters: QueryFilters,
+  options: { includeHostname?: boolean } = {},
+) {
   const { rawQuery, getSearchSQL } = clickhouse;
   const params = {};
   const { startDate, endDate, search } = filters;
+  const valueColumn =
+    options.includeHostname && column === 'url_path'
+      ? `if(hostname != '', concat(hostname, url_path), url_path)`
+      : column;
 
   let searchQuery = '';
   let excludeDomain = '';
@@ -106,17 +129,17 @@ async function clickhouseQuery(websiteId: string, column: string, filters: Query
 
           params[key] = value;
 
-          return getSearchSQL(column, key).replace('and ', '');
+          return getSearchSQL(valueColumn, key).replace('and ', '');
         })
         .join(' OR ')})`;
     } else {
-      searchQuery = getSearchSQL(column);
+      searchQuery = getSearchSQL(valueColumn);
     }
   }
 
   return rawQuery(
     `
-    select ${column} as "value", count(*) as "count"
+    select ${valueColumn} as "value", count(*) as "count"
     from website_event
     where website_id = {websiteId:UUID}
       and created_at between {startDate:DateTime64} and {endDate:DateTime64}

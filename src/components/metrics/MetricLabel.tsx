@@ -11,6 +11,7 @@ import {
 } from '@/components/hooks';
 import { GROUPED_DOMAINS } from '@/lib/constants';
 import { decodePunycodeDomain } from '@/lib/format';
+import { formatPageUrl, getPageHref } from '@/lib/url';
 
 export interface MetricLabelProps {
   type: string;
@@ -142,23 +143,24 @@ function CountryMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
 
 function PathMetricLabel({ type, data }: MetricLabelProps) {
   const { t, labels } = useMessages();
-  const { label, domain } = data;
+  const { label, hostname, domain } = data;
+  const host = hostname || domain;
 
   return (
     <FilterLink
       type={type === 'entry' || type === 'exit' ? 'path' : type}
       value={label}
-      label={!label && t(labels.none)}
-      externalUrl={domain ? `${domain?.startsWith('http') ? domain : `https://${domain}`}${label}` : null}
+      label={label ? formatPageUrl(host, label) : t(labels.none)}
+      externalUrl={getPageHref(host, label)}
     />
   );
 }
 
 function FullPathMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
   const { t, labels } = useMessages();
-  const { label } = data;
+  const { label, hostname } = data;
 
-  return label || `(${t(labels.none)})`;
+  return (label && formatPageUrl(hostname, label)) || `(${t(labels.none)})`;
 }
 
 function DeviceMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {

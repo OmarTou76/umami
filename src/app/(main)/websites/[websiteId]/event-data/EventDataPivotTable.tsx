@@ -15,6 +15,7 @@ import {
   useNavigation,
 } from '@/components/hooks';
 import type { EventPropertyFilter } from '@/lib/types';
+import { formatPageUrl } from '@/lib/url';
 
 export function EventDataPivotTable({
   websiteId,
@@ -51,6 +52,7 @@ export function EventDataPivotTable({
         eventId: string;
         sessionId: string;
         eventName: string;
+        hostname: string;
         urlPath: string;
         createdAt: string;
         propertyKeys: string[];
@@ -59,6 +61,7 @@ export function EventDataPivotTable({
         const flat: Record<string, any> = {
           eventId: row.eventId,
           sessionId: row.sessionId,
+          hostname: row.hostname,
           urlPath: row.urlPath,
           createdAt: row.createdAt,
         };
@@ -109,7 +112,7 @@ export function EventDataPivotTable({
                 )}
               </DataColumn>
               <DataColumn id="urlPath" label={t(labels.path)} width="220px">
-                {(row: any) => renderTruncatedText(row.urlPath ?? '')}
+                {(row: any) => renderTruncatedText(formatPageUrl(row.hostname, row.urlPath))}
               </DataColumn>
               {propertyKeys.map(key => (
                 <DataColumn key={key} id={key} label={key} width="160px">
@@ -134,7 +137,7 @@ export function EventDataPivotTable({
                     )}
                   </DataColumn>
                   <DataColumn id="urlPath" label={t(labels.path)} width="220px">
-                    {(row: any) => renderTruncatedText(row.urlPath ?? '')}
+                    {(row: any) => renderTruncatedText(formatPageUrl(row.hostname, row.urlPath))}
                   </DataColumn>
                   {propertyKeys.map(key => (
                     <DataColumn key={key} id={key} label={key} width="160px">

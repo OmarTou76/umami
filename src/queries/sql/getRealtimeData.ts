@@ -13,6 +13,24 @@ function increment(data: object, key: string) {
   }
 }
 
+function incrementUrl(
+  data: Record<string, { hostname: string; urlPath: string; count: number }>,
+  hostname: string,
+  urlPath: string,
+) {
+  if (!urlPath) {
+    return;
+  }
+
+  const key = JSON.stringify([hostname || '', urlPath]);
+
+  if (!data[key]) {
+    data[key] = { hostname, urlPath, count: 1 };
+  } else {
+    data[key].count += 1;
+  }
+}
+
 export async function getRealtimeData(websiteId: string, filters: QueryFilters) {
   const [activity, pageviews, sessions] = await Promise.all([
     getRealtimeActivity(websiteId, filters),
@@ -22,19 +40,20 @@ export async function getRealtimeData(websiteId: string, filters: QueryFilters) 
 
   const uniques = new Set();
 
-  const { countries, urls, referrers, events } = activity.reverse().reduce(
+  const { countries, urls, pages, referrers, events } = activity.reverse().reduce(
     (
-      obj: { countries: any; urls: any; referrers: any; events: any },
+      obj: { countries: any; urls: any; pages: any; referrers: any; events: any },
       event: {
         sessionId: string;
         urlPath: string;
         referrerDomain: string;
         country: string;
         eventName: string;
+        hostname: string;
       },
     ) => {
-      const { countries, urls, referrers, events } = obj;
-      const { sessionId, urlPath, referrerDomain, country, eventName } = event;
+      const { countries, urls, pages, referrers, events } = obj;
+      const { sessionId, urlPath, referrerDomain, country, eventName, hostname } = event;
 
       if (!uniques.has(sessionId)) {
         uniques.add(sessionId);
@@ -44,6 +63,7 @@ export async function getRealtimeData(websiteId: string, filters: QueryFilters) 
       }
 
       increment(urls, urlPath);
+      incrementUrl(pages, hostname, urlPath);
       increment(referrers, referrerDomain);
 
       events.push({ __type: eventName ? 'event' : 'pageview', ...event });
@@ -53,6 +73,7 @@ export async function getRealtimeData(websiteId: string, filters: QueryFilters) 
     {
       countries: {},
       urls: {},
+      pages: {},
       referrers: {},
       events: [],
     },
@@ -61,6 +82,7 @@ export async function getRealtimeData(websiteId: string, filters: QueryFilters) 
   return {
     countries,
     urls,
+    pages: Object.values(pages),
     referrers,
     events: events.reverse(),
     series: {

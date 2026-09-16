@@ -7,6 +7,7 @@ import type { PerformanceParameters } from './getPerformance';
 
 export interface PerformanceMetricsData {
   name: string;
+  hostname?: string;
   p50: number;
   p75: number;
   p95: number;
@@ -20,6 +21,7 @@ export async function getPerformanceMetrics(
     filters: QueryFilters,
     column: string,
     limit?: number,
+    includeHostname?: boolean,
   ]
 ) {
   return runQuery({
@@ -34,6 +36,7 @@ async function relationalQuery(
   filters: QueryFilters,
   column: string,
   limit?: number,
+  includeHostname?: boolean,
 ): Promise<PerformanceMetricsData[]> {
   const { startDate, endDate, metric = 'lcp' } = parameters;
   const { rawQuery, parseFilters } = prisma;
@@ -46,6 +49,7 @@ async function relationalQuery(
     `
     select
       ${column} as "name",
+      ${includeHostname ? 'website_event.hostname,' : ''}
       percentile_cont(0.5) within group (order by ${metric}) as p50,
       percentile_cont(0.75) within group (order by ${metric}) as p75,
       percentile_cont(0.95) within group (order by ${metric}) as p95,
@@ -57,7 +61,7 @@ async function relationalQuery(
       and website_event.event_type = 5
       and website_event.created_at between {{startDate}} and {{endDate}}
       ${filterQuery}
-    group by ${column}
+    group by ${column}${includeHostname ? ', website_event.hostname' : ''}
     order by p75 desc
     ${limit ? `limit ${limit}` : ''}
     `,
@@ -71,6 +75,7 @@ async function clickhouseQuery(
   filters: QueryFilters,
   column: string,
   limit?: number,
+  includeHostname?: boolean,
 ): Promise<PerformanceMetricsData[]> {
   const { startDate, endDate, metric = 'lcp' } = parameters;
   const { rawQuery, parseFilters } = clickhouse;
@@ -80,6 +85,7 @@ async function clickhouseQuery(
     `
     select
       ${column} as "name",
+      ${includeHostname ? 'website_event.hostname as hostname,' : ''}
       quantile(0.5)(${metric}) as p50,
       quantile(0.75)(${metric}) as p75,
       quantile(0.95)(${metric}) as p95,
@@ -90,7 +96,7 @@ async function clickhouseQuery(
       and website_event.event_type = 5
       and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
       ${filterQuery}
-    group by ${column}
+    group by ${column}${includeHostname ? ', website_event.hostname' : ''}
     order by p75 desc
     ${limit ? `limit ${limit}` : ''}
     `,

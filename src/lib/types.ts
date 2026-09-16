@@ -207,6 +207,7 @@ export interface RealtimeData {
     countries: number;
   };
   urls: Record<string, number>;
+  pages: { hostname: string; urlPath: string; count: number }[];
   visitors: any[];
 }
 

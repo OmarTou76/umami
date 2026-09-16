@@ -1,9 +1,5 @@
 import clickhouse from '@/lib/clickhouse';
-import {
-  EVENT_TYPE,
-  FILTER_COLUMNS,
-  SESSION_COLUMNS,
-} from '@/lib/constants';
+import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -35,18 +31,20 @@ async function relationalQuery(
 ): Promise<BreakdownData[]> {
   const { getTimestampDiffSQL, parseFilters, rawQuery } = prisma;
   const { startDate, endDate, fields } = parameters;
-  const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters(
-    {
-      ...filters,
-      websiteId,
-      startDate,
-      endDate,
-      eventType: EVENT_TYPE.pageView,
-    },
-    {
-      joinSession: !!fields.find((name: string) => SESSION_COLUMNS.includes(name)),
-    },
-  );
+  const queryFields = withPathHostname(fields);
+  const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
+    parseFilters(
+      {
+        ...filters,
+        websiteId,
+        startDate,
+        endDate,
+        eventType: EVENT_TYPE.pageView,
+      },
+      {
+        joinSession: !!queryFields.find((name: string) => SESSION_COLUMNS.includes(name)),
+      },
+    );
   const needsBounceEvents = filters.excludeBounce !== true;
   const bounceQuery = needsBounceEvents
     ? `sum(case when t.c = 1 and coalesce(e.has_custom_event, 0) = 0 then 1 else 0 end) as "bounces",`
@@ -72,10 +70,10 @@ async function relationalQuery(
       count(distinct t.visit_id) as "visits",
       ${bounceQuery}
       sum(${getTimestampDiffSQL('t.min_time', 't.max_time')}) as "totaltime",
-      ${parseFieldsByName(fields)}
+      ${parseFieldsByName(queryFields)}
     from (
       select
-        ${parseFields(fields)},
+        ${parseFields(queryFields)},
         website_event.session_id,
         website_event.visit_id,
         count(*) as "c",
@@ -88,11 +86,11 @@ async function relationalQuery(
       where website_event.website_id = {{websiteId::uuid}}
         and website_event.created_at between {{startDate}} and {{endDate}}
         ${filterQuery}
-      group by ${parseFieldsByName(fields)},
+      group by ${parseFieldsByName(queryFields)},
         website_event.session_id, website_event.visit_id
     ) as t
     ${visitEventsJoin}
-    group by ${parseFieldsByName(fields)}
+    group by ${parseFieldsByName(queryFields)}
     order by 2 desc, 1 desc
     limit 500
     `,
@@ -107,6 +105,7 @@ async function clickhouseQuery(
 ): Promise<BreakdownData[]> {
   const { parseFilters, rawQuery } = clickhouse;
   const { startDate, endDate, fields } = parameters;
+  const queryFields = withPathHostname(fields);
   const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
     ...filters,
     websiteId,
@@ -137,10 +136,10 @@ async function clickhouseQuery(
       count(distinct t.visit_id) as "visits",
       ${bounceQuery}
       sum(max_time-min_time) as "totaltime",
-      ${parseFieldsByName(fields)}
+      ${parseFieldsByName(queryFields)}
     from (
       select
-        ${parseFields(fields)},
+        ${parseFields(queryFields)},
         session_id,
         visit_id,
         count(*) c,
@@ -152,11 +151,11 @@ async function clickhouseQuery(
       where website_id = {websiteId:UUID}
         and created_at between {startDate:DateTime64} and {endDate:DateTime64}
         ${filterQuery}
-      group by ${parseFieldsByName(fields)},
+      group by ${parseFieldsByName(queryFields)},
         session_id, visit_id
     ) as t
     ${visitEventsJoin}
-    group by ${parseFieldsByName(fields)}
+    group by ${parseFieldsByName(queryFields)}
     order by 2 desc, 1 desc
     limit 500
     `,
@@ -170,4 +169,8 @@ function parseFields(fields: string[]) {
 
 function parseFieldsByName(fields: string[]) {
   return `${fields.map(name => `"${name}"`).join(',')}`;
+}
+
+function withPathHostname(fields: string[]) {
+  return fields.includes('path') && !fields.includes('hostname') ? [...fields, 'hostname'] : fields;
 }

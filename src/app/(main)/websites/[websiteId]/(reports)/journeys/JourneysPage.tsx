@@ -60,6 +60,7 @@ export function JourneysPage({ websiteId }: { websiteId: string }) {
             websiteId={websiteId}
             type={stepType}
             additionalType={additionalStepType}
+            includeHostname={stepType === 'path'}
             startDate={startDate}
             endDate={endDate}
             value={startStep}
@@ -72,6 +73,7 @@ export function JourneysPage({ websiteId }: { websiteId: string }) {
             websiteId={websiteId}
             type={stepType}
             additionalType={additionalStepType}
+            includeHostname={stepType === 'path'}
             startDate={startDate}
             endDate={endDate}
             value={endStep}

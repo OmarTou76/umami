@@ -8,11 +8,7 @@ const parseFiltersResult = {
   excludeBounceQuery: 'join excludeBounce on excludeBounce.visit_id = website_event.visit_id',
 };
 
-async function loadModule({
-  mode,
-}: {
-  mode: 'prisma' | 'clickhouse';
-}) {
+async function loadModule({ mode }: { mode: 'prisma' | 'clickhouse' }) {
   vi.resetModules();
 
   const state = { mode };
@@ -64,7 +60,9 @@ describe('getPageviewExpandedMetrics postgres branch', () => {
       mode: 'prisma',
     });
 
-    await getPageviewExpandedMetrics('website-1', { type: 'referrer' }, { path: '/pricing' } as any);
+    await getPageviewExpandedMetrics('website-1', { type: 'referrer' }, {
+      path: '/pricing',
+    } as any);
 
     const [query] = prismaRawQuery.mock.calls[0];
 
@@ -76,6 +74,17 @@ describe('getPageviewExpandedMetrics postgres branch', () => {
     expect(query).not.toContain('event_type = 2');
     expect(getTimestampDiffSQL).not.toHaveBeenCalled();
   });
+
+  test('keeps hostname associated with path rows', async () => {
+    const { getPageviewExpandedMetrics, prismaRawQuery } = await loadModule({ mode: 'prisma' });
+
+    await getPageviewExpandedMetrics('website-1', { type: 'path' }, {} as any);
+
+    const [query] = prismaRawQuery.mock.calls[0];
+
+    expect(query).toContain('website_event.hostname as hostname');
+    expect(query).toContain('group by name, hostname');
+  });
 });
 
 describe('getPageviewExpandedMetrics clickhouse branch', () => {
@@ -84,7 +93,9 @@ describe('getPageviewExpandedMetrics clickhouse branch', () => {
       mode: 'clickhouse',
     });
 
-    await getPageviewExpandedMetrics('website-1', { type: 'referrer' }, { path: '/pricing' } as any);
+    await getPageviewExpandedMetrics('website-1', { type: 'referrer' }, {
+      path: '/pricing',
+    } as any);
 
     const [query] = clickhouseRawQuery.mock.calls[0];
 
@@ -95,5 +106,19 @@ describe('getPageviewExpandedMetrics clickhouse branch', () => {
     expect(query).not.toContain('max(created_at) max_time');
     expect(query).not.toContain('sum(max_time-min_time)');
     expect(query).not.toContain('event_type = 2');
+  });
+
+  test('keeps the entry hostname from the same event as the entry path', async () => {
+    const { getPageviewExpandedMetrics, clickhouseRawQuery } = await loadModule({
+      mode: 'clickhouse',
+    });
+
+    await getPageviewExpandedMetrics('website-1', { type: 'entry' }, {} as any);
+
+    const [query] = clickhouseRawQuery.mock.calls[0];
+
+    expect(query).toContain('argMin(hostname, created_at) hostname');
+    expect(query).toContain('x.hostname as hostname');
+    expect(query).toContain('group by name, hostname');
   });
 });

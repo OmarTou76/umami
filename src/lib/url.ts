@@ -47,3 +47,23 @@ export function isValidUrl(url: string) {
     return false;
   }
 }
+
+export function formatPageUrl(hostname?: string | null, path?: string | null) {
+  const value = path || '';
+
+  if (!hostname) {
+    return value;
+  }
+
+  return `${hostname}${value && !value.startsWith('/') ? '/' : ''}${value}`;
+}
+
+export function getPageHref(hostname?: string | null, path?: string | null) {
+  if (!hostname) {
+    return undefined;
+  }
+
+  const url = formatPageUrl(hostname, path);
+
+  return hostname.startsWith('http://') || hostname.startsWith('https://') ? url : `//${url}`;
+}
