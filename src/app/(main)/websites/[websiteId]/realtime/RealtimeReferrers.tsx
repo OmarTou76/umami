@@ -1,4 +1,4 @@
-import { useMessages, useWebsite } from '@/components/hooks';
+import { useMessages, useMobile, useWebsite } from '@/components/hooks';
 import { ListTable } from '@/components/metrics/ListTable';
 import { percentFilter } from '@/lib/filters';
 import { firstBy } from 'thenby';
@@ -6,6 +6,7 @@ import { firstBy } from 'thenby';
 export function RealtimeReferrers({ data }: { data: any }) {
   const website = useWebsite();
   const { t, labels } = useMessages();
+  const { isMobile } = useMobile();
   const { referrers } = data || {};
   const limit = 15;
 
@@ -35,6 +36,7 @@ export function RealtimeReferrers({ data }: { data: any }) {
       title={t(labels.referrers)}
       metric={t(labels.views)}
       renderLabel={renderLink}
+      scrollLabel={isMobile}
       data={domains.map(({ x, y, z }: { x: string; y: number; z: number }) => ({
         label: x,
         count: y,

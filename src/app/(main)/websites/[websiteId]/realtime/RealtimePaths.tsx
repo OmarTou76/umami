@@ -1,11 +1,12 @@
 import { firstBy } from 'thenby';
-import { useMessages } from '@/components/hooks';
+import { useMessages, useMobile } from '@/components/hooks';
 import { ListTable } from '@/components/metrics/ListTable';
 import { percentFilter } from '@/lib/filters';
 import { formatPageUrl, getPageHref } from '@/lib/url';
 
 export function RealtimePaths({ data }: { data: any }) {
   const { t, labels } = useMessages();
+  const { isMobile } = useMobile();
   const { pages: pageData, urls = {} } = data || {};
   const limit = 15;
   const pageRows =
@@ -37,6 +38,7 @@ export function RealtimePaths({ data }: { data: any }) {
       title={t(labels.pages)}
       metric={t(labels.views)}
       renderLabel={renderLink}
+      scrollLabel={isMobile}
       data={pages.map(
         ({ x, y, z, hostname }: { x: string; y: number; z: number; hostname: string }) => ({
           label: x,

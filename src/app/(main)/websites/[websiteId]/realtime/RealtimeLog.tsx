@@ -45,7 +45,7 @@ export function RealtimeLog({ data }: { data: any }) {
   const { countryNames } = useCountryNames(locale);
   const [filter, setFilter] = useState(TYPE_ALL);
   const { updateParams } = useNavigation();
-  const { isPhone } = useMobile();
+  const { isPhone, isMobile } = useMobile();
 
   const buttons = [
     {
@@ -138,7 +138,13 @@ export function RealtimeLog({ data }: { data: any }) {
           <Text wrap="nowrap">{getTime(row)}</Text>
         </Row>
         <IconLabel icon={getIcon(row)} style={{ minWidth: 0, flex: 1 }}>
-          <Text truncate>{getDetail(row)}</Text>
+          {isMobile ? (
+            <Row minWidth="0" overflowX="auto" style={{ flex: 1 }}>
+              <Text wrap="nowrap">{getDetail(row)}</Text>
+            </Row>
+          ) : (
+            <Text truncate>{getDetail(row)}</Text>
+          )}
         </IconLabel>
       </Row>
     );

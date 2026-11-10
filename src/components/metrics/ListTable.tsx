@@ -26,6 +26,7 @@ export interface ListTableProps {
   animate?: boolean;
   virtualize?: boolean;
   showPercentage?: boolean;
+  scrollLabel?: boolean;
   itemCount?: number;
   formatCount?: (n: number) => string;
 }
@@ -39,6 +40,7 @@ export function ListTable({
   animate = true,
   virtualize = false,
   showPercentage = true,
+  scrollLabel = false,
   itemCount = 10,
   formatCount,
 }: ListTableProps) {
@@ -56,6 +58,7 @@ export function ListTable({
         percent={percent}
         animate={animate && !virtualize}
         showPercentage={showPercentage}
+        scrollLabel={scrollLabel}
         change={renderChange ? renderChange(row, index) : null}
         formatCount={formatCount}
         isPhone={isPhone}
@@ -106,6 +109,7 @@ const AnimatedRow = ({
   change,
   animate,
   showPercentage = true,
+  scrollLabel = false,
   formatCount,
   isPhone,
 }) => {
@@ -134,11 +138,17 @@ const AnimatedRow = ({
       gap
       hover={{ backgroundColor: 'surface-sunken' }}
     >
-      <Row alignItems="center">
-        <Text truncate={true} style={{ maxWidth: isPhone ? '200px' : '400px' }}>
-          {label}
-        </Text>
-      </Row>
+      {scrollLabel ? (
+        <Row alignItems="center" minWidth="0" overflowX="auto">
+          <Text wrap="nowrap">{label}</Text>
+        </Row>
+      ) : (
+        <Row alignItems="center">
+          <Text truncate={true} style={{ maxWidth: isPhone ? '200px' : '400px' }}>
+            {label}
+          </Text>
+        </Row>
+      )}
       <Row
         alignItems="center"
         height="30px"
