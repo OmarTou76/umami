@@ -1,4 +1,4 @@
-import type { QueryFilters } from '@/lib/types';
+import type { QueryFilters, RealtimeActivity, RealtimeData, RealtimeEvent } from '@/lib/types';
 import { getRealtimeActivity } from '@/queries/sql/getRealtimeActivity';
 import { getPageviewStats } from '@/queries/sql/pageviews/getPageviewStats';
 import { getSessionStats } from '@/queries/sql/sessions/getSessionStats';
@@ -31,7 +31,10 @@ function incrementUrl(
   }
 }
 
-export async function getRealtimeData(websiteId: string, filters: QueryFilters) {
+export async function getRealtimeData(
+  websiteId: string,
+  filters: QueryFilters,
+): Promise<RealtimeData> {
   const [activity, pageviews, sessions] = await Promise.all([
     getRealtimeActivity(websiteId, filters),
     getPageviewStats(websiteId, filters),
@@ -42,15 +45,14 @@ export async function getRealtimeData(websiteId: string, filters: QueryFilters) 
 
   const { countries, urls, pages, referrers, events } = activity.reverse().reduce(
     (
-      obj: { countries: any; urls: any; pages: any; referrers: any; events: any },
-      event: {
-        sessionId: string;
-        urlPath: string;
-        referrerDomain: string;
-        country: string;
-        eventName: string;
-        hostname: string;
+      obj: {
+        countries: Record<string, number>;
+        urls: Record<string, number>;
+        pages: Record<string, { hostname: string; urlPath: string; count: number }>;
+        referrers: Record<string, number>;
+        events: RealtimeEvent[];
       },
+      event: RealtimeActivity,
     ) => {
       const { countries, urls, pages, referrers, events } = obj;
       const { sessionId, urlPath, referrerDomain, country, eventName, hostname } = event;
