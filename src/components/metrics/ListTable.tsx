@@ -5,6 +5,7 @@ import { List, type RowComponentProps } from 'react-window';
 import { AnimatedDiv } from '@/components/common/AnimatedDiv';
 import { Empty } from '@/components/common/Empty';
 import { useMessages, useMobile } from '@/components/hooks';
+import { useReducedMotion } from '@/components/hooks/useReducedMotion';
 import { formatLongNumber } from '@/lib/format';
 
 const ITEM_SIZE = 30;
@@ -46,6 +47,7 @@ export function ListTable({
 }: ListTableProps) {
   const { t, labels } = useMessages();
   const { isPhone } = useMobile();
+  const reducedMotion = useReducedMotion();
 
   const getRow = (row: ListData, index: number) => {
     const { label, count, percent } = row;
@@ -56,7 +58,7 @@ export function ListTable({
         label={renderLabel ? renderLabel(row, index) : (label ?? t(labels.unknown))}
         value={count}
         percent={percent}
-        animate={animate && !virtualize}
+        animate={animate && !virtualize && !reducedMotion}
         showPercentage={showPercentage}
         scrollLabel={scrollLabel}
         change={renderChange ? renderChange(row, index) : null}
@@ -156,7 +158,9 @@ const AnimatedRow = ({
       >
         {change}
         <Text weight="bold">
-          <AnimatedDiv title={String(value)}>{yText}</AnimatedDiv>
+          <AnimatedDiv title={String(value)}>
+            {animate ? yText : formatCount ? formatCount(y) : formatLongNumber(y)}
+          </AnimatedDiv>
         </Text>
       </Row>
       {showPercentage && (
@@ -169,7 +173,7 @@ const AnimatedRow = ({
           color="muted"
           paddingLeft="3"
         >
-          <AnimatedDiv>{widthText}</AnimatedDiv>
+          <AnimatedDiv>{animate ? widthText : `${percent?.toFixed?.(0)}%`}</AnimatedDiv>
         </Row>
       )}
     </Grid>

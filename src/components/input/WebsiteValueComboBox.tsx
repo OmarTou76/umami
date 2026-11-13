@@ -2,7 +2,7 @@ import { type ComboBoxProps, cn, Label, ListItem, Loading, useDebounce } from '@
 import { useEffect, useMemo, useState } from 'react';
 import { ComboBox } from '@/components/common/ComboBox';
 import { Empty } from '@/components/common/Empty';
-import { useMessages, useWebsiteValuesQuery } from '@/components/hooks';
+import { useMessages, useTimezone, useWebsiteValuesQuery } from '@/components/hooks';
 
 const DEFAULT_PLACEHOLDER = 'Select an item';
 
@@ -36,22 +36,26 @@ export function WebsiteValueComboBox({
   ...props
 }: WebsiteValueComboBoxProps) {
   const { t, messages } = useMessages();
+  const { toUtc } = useTimezone();
   const [search, setSearch] = useState(value);
   const searchValue = useDebounce(search, 300);
+  // startDate/endDate are profile-timezone wall-clock times, as useDateRange({ timezone }) returns them.
+  const utcStartDate = toUtc(startDate);
+  const utcEndDate = toUtc(endDate);
   const primaryQuery = useWebsiteValuesQuery({
     websiteId,
     type,
     search: searchValue,
-    startDate,
-    endDate,
+    startDate: utcStartDate,
+    endDate: utcEndDate,
     includeHostname,
   });
   const additionalQuery = useWebsiteValuesQuery({
     websiteId,
     type: additionalType,
     search: searchValue,
-    startDate,
-    endDate,
+    startDate: utcStartDate,
+    endDate: utcEndDate,
   });
 
   useEffect(() => {
